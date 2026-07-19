@@ -18,13 +18,13 @@ from .search_utils import (
 
 class InvertedIndex:
     def __init__(self) -> None:
-        self.index = defaultdict(set)
+        self.index: defaultdict[str, set[int]] = defaultdict(set)
         self.docmap: dict[int, dict] = {}
         self.index_path = os.path.join(CACHE_DIR, "index.pkl")
         self.docmap_path = os.path.join(CACHE_DIR, "docmap.pkl")
         self.tf_path = os.path.join(CACHE_DIR, "term_frequencies.pkl")
-        self.term_frequencies = defaultdict(Counter)
-        self.doc_lengths = defaultdict(int)
+        self.term_frequencies: defaultdict[int, Counter[str]] = defaultdict(Counter)
+        self.doc_lengths: defaultdict[int, int] = defaultdict(int)
         self.doc_lengths_path = os.path.join(CACHE_DIR, "doc_lengths.pkl")
 
     def build(self) -> None:
@@ -71,7 +71,7 @@ class InvertedIndex:
         
 
     def __add_document(self, doc_id: int, text: str) -> None:
-        tokens = tokenize_text(text)
+        tokens: list[str] = tokenize_text(text)
         for token in set(tokens):
             self.index[token].add(doc_id)
         self.term_frequencies[doc_id].update(tokens)
@@ -81,8 +81,8 @@ class InvertedIndex:
         return self.term_frequencies[doc_id][term]
 
     def get_idf(self, term: str) -> float:
-        doc_count = len(self.docmap)
-        term_doc_count = len(self.index[term])
+        doc_count: int = len(self.docmap)
+        term_doc_count: int = len(self.index[term])
         return math.log((doc_count + 1) / (term_doc_count + 1))
 
     def get_tf_idf(self, doc_id: int, term: str) -> float:
@@ -108,20 +108,20 @@ class InvertedIndex:
         return self.get_bm25_tf(doc_id, term) * self.get_bm25_idf(term)
     
     def bm25_search(self, query: str, limit: int = DEFAULT_SEARCH_LIMIT) -> tuple[list[dict], dict[int, float]]:
-        query_tokens = tokenize_text(query)
-        scores = defaultdict(float)
+        query_tokens: list[str] = tokenize_text(query)
+        scores: defaultdict[int, float] = defaultdict(float)
         for query_token in query_tokens:
-            doc_ids = self.get_documents(query_token)
+            doc_ids: list[int] = self.get_documents(query_token)
             for id in doc_ids:
                 scores[id] += self.bm25(id, query_token)
                 
         # Sort documents by score in descending order
-        sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        sorted_scores: list[tuple[int, float]] = sorted(scores.items(), key=lambda x: x[1], reverse=True)
         # Take the top limit documents
         top_scores = sorted_scores[:limit]
         
-        result_docs = []
-        result_scores = {}
+        result_docs: list[dict] = []
+        result_scores: dict[int, float] = {}
         for doc_id, score in top_scores:
             result_docs.append(self.docmap[doc_id])
             result_scores[doc_id] = score
@@ -138,10 +138,11 @@ def build_command() -> None:
 def search_command(query: str, limit: int = DEFAULT_SEARCH_LIMIT) -> list[dict]:
     idx = InvertedIndex()
     idx.load()
-    query_tokens = tokenize_text(query)
-    seen, results = set(), []
+    query_tokens: list[str] = tokenize_text(query)
+    seen: set[int] = set()
+    results: list[dict] = []
     for query_token in query_tokens:
-        matching_doc_ids = idx.get_documents(query_token)
+        matching_doc_ids: list[int] = idx.get_documents(query_token)
         for doc_id in matching_doc_ids:
             if doc_id in seen:
                 continue
@@ -176,16 +177,16 @@ STOPWORDS = load_stopwords()
 def tokenize_text(text: str) -> list[str]:
     text = preprocess_text(text)
     tokens = text.split()
-    valid_tokens = []
+    valid_tokens: list[str] = []
     for token in tokens:
         if token:
             valid_tokens.append(token)
-    filtered_words = []
+    filtered_words: list[str] = []
     for word in valid_tokens:
         if word not in STOPWORDS:
             filtered_words.append(word)
     stemmer = PorterStemmer()
-    stemmed_words = []
+    stemmed_words: list[str] = []
     for word in filtered_words:
         stemmed_words.append(stemmer.stem(word))
     return stemmed_words
